@@ -1,5 +1,5 @@
 use actix_web::web;
-use crate::adapter::in_web::reservation_controller;
+use crate::infra::web::reservation_controller;
 
 // `/reservation` 경로 설정
 pub fn configure(cfg: &mut web::ServiceConfig) {
