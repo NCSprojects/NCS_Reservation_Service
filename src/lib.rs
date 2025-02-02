@@ -4,3 +4,6 @@ pub mod startup;
 pub mod infra;
 pub mod r#struct;
 pub mod db_connection;
+pub mod application;
+pub mod domain;
+pub mod adapter;

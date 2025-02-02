@@ -2,7 +2,7 @@ use actix_web::{web, App, HttpServer, middleware::Logger};
 use tokio::{task, time::{sleep, Duration}};
 use reqwest::Client;
 use std::net::TcpListener;
-use crate::{infra::web::routes::configure, settings::Settings, r#struct::eureka_info::{DataCenterInfo, EurekaDetails, EurekaInfo, EurekaPortDetails}};
+use crate::{infra::web::routes::configure, r#struct::eureka_info::{DataCenterInfo, EurekaDetails, EurekaInfo, EurekaPortDetails}};
 use crate::state::AppState;
 use std::sync::Arc;
 
@@ -66,7 +66,7 @@ pub fn run(listener: TcpListener, state: Arc<AppState>) -> Result<actix_web::dev
         App::new()
             .wrap(Logger::default())
             .app_data(web::Data::new(state.clone()))
-            .configure(configure)
+            .configure(|cfg| configure(cfg, state.clone()))
     })
     .listen(listener)?
     .run();
