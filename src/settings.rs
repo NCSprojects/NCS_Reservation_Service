@@ -8,7 +8,10 @@ pub struct Settings {
     pub instance_id: String,
     pub server_host: String,
     pub server_port: u16,
-    pub database_url: String, 
+    pub database_url: String,
+
+    pub grpc_host: String,
+    pub grpc_port: u16, 
 }
 
 impl Settings {
