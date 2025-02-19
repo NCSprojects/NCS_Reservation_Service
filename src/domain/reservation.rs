@@ -3,17 +3,25 @@ use std::{fmt, str::FromStr};
 use chrono::{DateTime, Utc};
 use sqlx::prelude::FromRow;
 
+use crate::reservation_proto::CreateReservationRequest;
+
 #[derive(Debug, Clone ,FromRow)]
 pub struct Reservation {
     pub id: i32,
-    pub user_id: i32,
-    pub content_schedule_id: i32,
+    pub user_id: String,
+    pub content_schedule_id: u64,
     pub reserved_at: Option<DateTime<Utc>>,
-    pub status: Option<ReservationStatus>,  
+    pub status: Option<ReservationStatus>, 
+    pub ad_cnt: i32,
+    pub cd_cnt: i32, 
     pub use_at: bool,
 }
 
-
+impl Reservation {
+    pub fn is_valid_capacity(&self, new_ad_cnt: i32, new_cd_cnt: i32) -> bool {
+        new_ad_cnt >= self.ad_cnt && new_cd_cnt >= self.cd_cnt
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum ReservationStatus {
@@ -54,3 +62,20 @@ impl FromStr for ReservationStatus {
     }
 }
 
+// gRPC CreateReservationRequest를 Reservation으로 변환
+impl From<CreateReservationRequest> for Reservation {
+    fn from(req: CreateReservationRequest) -> Self {
+        Reservation {
+            id: 0,
+            user_id: req.user_id,
+            content_schedule_id: req.content_schedule_id,
+            reserved_at: None,
+                // .as_deref() // Option<String> → Option<&str>
+                // .and_then(|s| s.parse::<DateTime<Utc>>().ok()), // ✅ 변환 시도 (실패하면 None)
+            ad_cnt: req.ad_cnt,
+            cd_cnt: req.cd_cnt,
+            status: None,
+            use_at: false,
+        }
+    }
+}

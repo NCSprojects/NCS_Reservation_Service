@@ -1,7 +1,7 @@
-use sqlx::{MySqlPool};
+use sqlx::MySqlPool;
 use tokio::sync::Mutex;
 use std::sync::Arc;
-use crate::{adapter::reservation_adapter::ReservationAdapter, application::{port::{r#in::reservation_usecase::ReservationUseCase, out::{reservation_load_port::ReservationLoadPort, reservation_save_port::ReservationSavePort}}, reservation_service::{self, ReservationService}}, db_connection::establish_connection, grpc::grpc_service::ReservationGrpcService, grpc_client::AuthGrpcClient, infra::{db::reservation_repository::ReservationRepositoryImpl, web::reservation_controller::ReservationController}, settings::Settings};
+use crate::{adapter::reservation_adapter::ReservationAdapter, application::{port::{r#in::reservation_usecase::ReservationUseCase, out::{reservation_load_port::ReservationLoadPort, reservation_save_port::ReservationSavePort}}, reservation_service::ReservationService}, db_connection::establish_connection, grpc::grpc_service::ReservationGrpcService,  grpc_client::GrpcClients, infra::{db::reservation_repository::ReservationRepositoryImpl, web::reservation_controller::ReservationController}, settings::Settings};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -9,7 +9,8 @@ pub struct AppState {
     pub db_pool: Arc<MySqlPool>,  
     pub reservation_service: Arc<dyn ReservationUseCase + Send + Sync>,
     pub reservation_controller: Arc<ReservationController>,
-    pub grpc_server: Arc<ReservationGrpcService>,  
+    pub grpc_server: Arc<ReservationGrpcService>,
+    pub grpc_clients: Arc<Mutex<GrpcClients>>,
 }
 
 impl AppState {
@@ -30,16 +31,19 @@ impl AppState {
         let load_port: Arc<dyn ReservationLoadPort + Send + Sync> = adapter.clone();
         let reservation_service: Arc<dyn ReservationUseCase + Send + Sync> = Arc::new(ReservationService::new(Arc::clone(&save_port), Arc::clone(&load_port)));
         //let reservation_service: Arc<dyn ReservationUseCase + Send + Sync> = Arc::new(ReservationService::new(adapter.clone())); 
-        let auth_client = if let Ok(client) = AuthGrpcClient::new("http://localhost:50052").await {
-            println!("✅ Successfully connected to Auth Service");
+        
+        let grpc_clients = if let Ok(client) = GrpcClients::new("http://localhost:50052", "http://localhost:50053").await {
+            println!("✅ Successfully connected to gRPC services");
             Arc::new(Mutex::new(client))
         } else {
-            eprintln!("⚠️ Failed to connect to Auth Service. Proceeding without it.");
-            Arc::new(Mutex::new(AuthGrpcClient::dummy())) 
+            eprintln!("⚠️ Failed to connect to gRPC services. Proceeding with dummy clients.");
+            Arc::new(Mutex::new(GrpcClients::dummy())) 
         };
+
+
         let reservation_controller = Arc::new(ReservationController::new(
             Arc::clone(&reservation_service),
-            Arc::clone(&auth_client)
+            Arc::clone(&grpc_clients)
     ));
          // gRPC 서버 인스턴스 생성
          let grpc_server = Arc::new(ReservationGrpcService::new(Arc::clone(&reservation_service)));
@@ -50,6 +54,7 @@ impl AppState {
              reservation_service,
              reservation_controller,
              grpc_server, // gRPC 서버 추가
+             grpc_clients
          }
     }
 }

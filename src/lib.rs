@@ -11,6 +11,7 @@ pub mod domain;
 pub mod adapter;
 pub mod dto;
 pub mod grpc;
+pub mod error;
 pub mod reservation_proto {
     tonic::include_proto!("reservation"); 
 }

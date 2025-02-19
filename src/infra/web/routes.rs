@@ -11,6 +11,7 @@ pub fn configure(cfg: &mut web::ServiceConfig, state: Arc<AppState>) {
             .route("/hi", web::get().to(ReservationController::say_hi))
             .route("/create", web::post().to(ReservationController::create_reservation))
             .route("/{id}", web::get().to(ReservationController::show_reservation))
+            .route("/count",web::post().to(ReservationController::update_reservation))
             .app_data(web::Data::new(controller.clone())),
     );
 }

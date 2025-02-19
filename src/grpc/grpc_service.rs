@@ -1,6 +1,6 @@
 use tonic::{Request, Response, Status};
 use std::sync::Arc;
-use crate::{application::port::r#in::reservation_usecase::ReservationUseCase, domain::reservation::Reservation, reservation_proto::{reservation_service_server::ReservationService, CreateReservationRequest, CreateReservationResponse}, state::AppState};
+use crate::{application::port::r#in::reservation_usecase::ReservationUseCase, domain::reservation::Reservation, reservation_proto::{reservation_service_server::ReservationService, CreateReservationRequest, CreateReservationResponse}};
 
 pub struct ReservationGrpcService {
     reservation_service: Arc<dyn ReservationUseCase + Send + Sync>,  
