@@ -32,6 +32,10 @@ impl ReservationLoadPort for ReservationAdapter {
         let chk_val = self.repository.check_user_reservation_for_content(user_id, schedule_id).await?;
         Ok(chk_val) 
     }
+    async fn load_reservations_by_user(&self, user_id: &str) -> Result<Vec<Reservation>, String>
+    {
+        self.repository.load_reservations_by_user(user_id).await
+    }
     
 }
 

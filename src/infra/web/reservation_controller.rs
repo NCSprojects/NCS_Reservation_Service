@@ -103,6 +103,43 @@ impl ReservationController {
         }
     }
 
+    pub async fn show_user_reservations(
+        controller: web::Data<Arc<ReservationController>>,
+        http_req: HttpRequest, 
+    )-> impl Responder {
+        // 헤더에서 JWT 가져오기
+        let token = match http_req.headers().get("Authorization") {
+            Some(value) => value.to_str().unwrap_or("").replace("Bearer ", "").trim().to_string(),
+            None => return HttpResponse::Unauthorized().json("No Authorization Header"),
+        };
+    
+        // gRPC를 사용하여 AuthService에 토큰 검증 요청
+        let mut grpc_clients = controller.grpc_clients.lock().await;
+        let user_id = match grpc_clients.validate_token(token).await {
+            Ok(Some(user_id)) => {
+                println!("✅ Received user_id from gRPC: {}", user_id);
+                user_id
+            },
+            Ok(None) => {
+                println!("⚠️ gRPC returned None for user_id!");
+                return HttpResponse::Unauthorized().json("Invalid Token");
+            },
+            Err(err) => {
+                println!("❌ gRPC call failed: {}", err);
+                return HttpResponse::InternalServerError().json("Auth Service Error");
+            }
+        };
+        println!("Received user_id from Auth Service: {}", user_id);
+       
+        match controller.use_case.show_user_reservations(&user_id).await {
+            Ok(reservations) => {
+                let reservation_dtos: Vec<ReservationDTO> = reservations.into_iter().map(ReservationDTO::from).collect(); 
+                HttpResponse::Ok().json(reservation_dtos) // ✅ JSON 변환 가능
+            },
+            Err(e) => HttpResponse::InternalServerError().json(format!("Error: {}", e)),
+        }
+    }
+
     // /reservation/{id} 엔드포인트 - 예약 조회 (DTO 반환)
     pub async fn show_reservation(
         controller: web::Data<Arc<ReservationController>>,

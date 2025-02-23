@@ -72,6 +72,12 @@ impl ReservationUseCase for ReservationService {
             .ok_or("Reservation not found".to_string())
     }
 
+    async fn show_user_reservations(&self, user_id: &str) -> Result<Vec<Reservation>,String>{
+        self.load_port
+            .load_reservations_by_user(user_id)
+            .await
+    }
+
     async fn check_reservation(&self, user_id: String, schedule_id: u64, ad_cnt: i32, cd_cnt: i32, max_adult:i32,max_child:i32) -> Result<bool, String> {
         // 사용자 입력 데이터 검증
         if !self.validate_reservation_input_count(ad_cnt, cd_cnt, max_adult, max_child) {

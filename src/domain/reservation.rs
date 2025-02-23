@@ -1,7 +1,8 @@
 use std::{fmt, str::FromStr};
 
 use chrono::{DateTime, Utc};
-use sqlx::prelude::FromRow;
+use serde::Deserialize;
+use sqlx::prelude::{FromRow, Type};
 
 use crate::reservation_proto::CreateReservationRequest;
 
@@ -23,7 +24,8 @@ impl Reservation {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Type, Deserialize)]
+#[sqlx(type_name = "VARCHAR")] 
 pub enum ReservationStatus {
     Pending,
     Confirmed,
