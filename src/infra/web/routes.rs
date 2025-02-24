@@ -10,9 +10,9 @@ pub fn configure(cfg: &mut web::ServiceConfig, state: Arc<AppState>) {
         web::scope("/reservation")
             .route("/hi", web::get().to(ReservationController::say_hi))
             .route("/create", web::post().to(ReservationController::create_reservation))
+            .route("/user",web::get().to(ReservationController::show_user_reservations))
             .route("/{id}", web::get().to(ReservationController::show_reservation))
             .route("/count",web::post().to(ReservationController::update_reservation))
-            .route("/user",web::get().to(ReservationController::show_user_reservations))
             .app_data(web::Data::new(controller.clone())),
     );
 }
