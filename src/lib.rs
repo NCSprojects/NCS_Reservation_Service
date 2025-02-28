@@ -15,3 +15,6 @@ pub mod error;
 pub mod reservation_proto {
     tonic::include_proto!("reservation"); 
 }
+pub mod reservationfcm_proto {
+    tonic::include_proto!("reservationfcm"); 
+}

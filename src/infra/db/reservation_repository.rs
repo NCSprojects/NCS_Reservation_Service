@@ -8,6 +8,7 @@ use crate::{domain::reservation::{Reservation, ReservationStatus}, dto::reservat
 pub trait ReservationRepository: Send + Sync {
     async fn load_reservation(&self, reservation_id: i32) -> Option<Reservation>;
     async fn load_reservations_by_user(&self, user_id: &str) -> Result<Vec<Reservation>, String>; 
+    async fn load_reservation_by_content_schedule(&self, content_schedule_id:u64) -> Result<Vec<Reservation>,String>;
     async fn save_reservation(&self, reservation: Reservation) -> Result<(), String>;
     async fn update_status(&self, reservation_id: i32, status: ReservationStatus) -> Result<(), String>;
     async fn update_reservaiton_user_count(&self, reservation_id: i32, ad_cnt:i32, cd_cnt:i32) -> Result<(), String>;
@@ -91,7 +92,42 @@ impl ReservationRepository for ReservationRepositoryImpl {
 
         Ok(reservations)
     }
-    
+    async fn load_reservation_by_content_schedule(&self, content_schedule_id:u64)-> Result<Vec<Reservation>, String> {
+        let rows = query(
+            "
+            SELECT 
+                id, user_id, content_schedule_id, reserved_at, status, ad_cnt, cd_cnt, use_at 
+            FROM RESERVATION
+            WHERE content_schedule_id = ?
+            "
+        ).bind(content_schedule_id)
+        .fetch_all(&*self.pool)
+        .await
+        .map_err(|err| err.to_string())?;
+
+        let reservations = rows.into_iter().map(|row| {
+            let status: Option<String> = row.try_get("status").ok();
+            let status = status.and_then(|s| match s.as_str() {
+                "PENDING" => Some(ReservationStatus::Pending),
+                "CONFIRMED" => Some(ReservationStatus::Confirmed),
+                "CANCELLED" => Some(ReservationStatus::Cancelled),
+                _ => None,
+            });
+
+            Reservation {
+                id: row.get("id"),
+                user_id: row.get("user_id"),
+                content_schedule_id: row.get("content_schedule_id"),
+                reserved_at: row.try_get("reserved_at").ok(),
+                status,
+                ad_cnt: row.get("ad_cnt"),
+                cd_cnt: row.get("cd_cnt"),
+                use_at: row.get::<i8, _>("use_at") != 0, // ✅ `TINYINT(1)` → `bool` 변환
+            }
+        }).collect();
+
+        Ok(reservations)
+    }
 
     async fn save_reservation(&self, reservation: Reservation) -> Result<(), String> {
         let status_str = reservation.status.map(|s| s.to_string());

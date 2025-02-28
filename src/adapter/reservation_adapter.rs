@@ -36,6 +36,10 @@ impl ReservationLoadPort for ReservationAdapter {
     {
         self.repository.load_reservations_by_user(user_id).await
     }
+    async fn load_reservation_by_content_schedule(&self, content_schedule_id:u64)-> Result<Vec<Reservation>, String>
+    {
+        self.repository.load_reservation_by_content_schedule(content_schedule_id).await
+    }
     
 }
 

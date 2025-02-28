@@ -49,10 +49,10 @@ impl GrpcClients {
         
         // 🔹 빈 user_id 체크
         let user_id = if inner_response.user_id.trim().is_empty() {
-            println!("⚠️ gRPC returned empty user_id! Treating as None.");
+            println!("gRPC returned empty user_id! Treating as None.");
             None
         } else {
-            println!("✅ gRPC Response received user_id: {}", inner_response.user_id);
+            println!("gRPC Response received user_id: {}", inner_response.user_id);
             Some(inner_response.user_id)
         };
 
