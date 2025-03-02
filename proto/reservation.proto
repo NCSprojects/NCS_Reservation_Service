@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package reservation;
+
+service ReservationService {
+  rpc CreateReservation (CreateReservationRequest) returns (CreateReservationResponse);
+}
+
+message CreateReservationRequest {
+  string user_id = 1;
+  uint64 content_schedule_id = 2;
+  int32 ad_cnt = 3;
+  int32 cd_cnt = 4;
+}
+
+message CreateReservationResponse {
+  bool success = 1;
+  string message = 2;
+}

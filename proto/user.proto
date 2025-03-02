@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package user;
+
+service UserService {
+  rpc CreateUser(UserRequest) returns (UserResponse);
+  rpc FindById(UserId) returns (UserResponse);
+}
+message UserId {
+  string randomId =1;
+}
+
+message UserRequest {
+  string randomId = 1;
+  int32 adCnt = 2;
+  int32 cdCnt = 3;
+  bool preRev = 4;
+  string regDt = 5;
+}
+
+message UserResponse {
+  string randomId = 1;
+  int32 adCnt = 2;
+  int32 cdCnt = 3;
+  bool preRev = 4;
+  string regDt = 5;
+}
