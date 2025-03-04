@@ -7,7 +7,9 @@ use crate::domain::reservation::{Reservation, ReservationStatus};
 use crate::dto::create_reservation_dto::CreateReservationRequest;
 use crate::dto::update_reservation_dto::UpdateReservationRequest;
 use crate::dto::reservation_response_dto::ReservationDTO;
-use crate::grpc_client::GrpcClients; 
+use crate::dto::update_status_dto::UpdateStatusRequest;
+use crate::grpc_client::GrpcClients;
+use crate::common::valid::validate_user_token;
 
 // `String` → `DateTime<Utc>` 변환 함수
 fn parse_datetime_from_string(datetime_str: &str) -> Result<DateTime<Utc>, ParseError> {
@@ -26,11 +28,6 @@ impl ReservationController {
         grpc_clients: Arc<Mutex<GrpcClients>> 
     ) -> Self {
         Self { use_case, grpc_clients }
-    }
-
-    // ✅ `/reservation/hi` 엔드포인트 (테스트용)
-    pub async fn say_hi() -> impl Responder {
-        HttpResponse::Ok().body("hi")
     }
 
     // 예약 생성
@@ -95,11 +92,11 @@ impl ReservationController {
     
             // 예약 생성 처리
             match controller.use_case.create_reservation(reservation).await {
-                Ok(_) => HttpResponse::Created().json("✅ 예약이 성공적으로 생성되었습니다."),
-                Err(e) => HttpResponse::InternalServerError().json(format!("❌ 예약 생성 실패: {}", e)),
+                Ok(_) => HttpResponse::Created().json("예약이 성공적으로 생성되었습니다."),
+                Err(e) => HttpResponse::InternalServerError().json(format!("예약 생성 실패: {}", e)),
             }
         } else {
-            HttpResponse::BadRequest().json("🚫 예약 불가: 인원 초과 또는 중복 예약 불가")
+            HttpResponse::BadRequest().json("예약 불가: 인원 초과 또는 중복 예약 불가")
         }
     }
 
@@ -114,21 +111,11 @@ impl ReservationController {
         };
     
         // gRPC를 사용하여 AuthService에 토큰 검증 요청
-        let mut grpc_clients = controller.grpc_clients.lock().await;
-        let user_id = match grpc_clients.validate_token(token).await {
-            Ok(Some(user_id)) => {
-                println!("✅ Received user_id from gRPC: {}", user_id);
-                user_id
-            },
-            Ok(None) => {
-                println!("⚠️ gRPC returned None for user_id!");
-                return HttpResponse::Unauthorized().json("Invalid Token");
-            },
-            Err(err) => {
-                println!("❌ gRPC call failed: {}", err);
-                return HttpResponse::InternalServerError().json("Auth Service Error");
-            }
+        let user_id = match validate_user_token(controller.grpc_clients.clone(), &token).await {
+            Ok(user_id) => user_id,
+            Err(response) => return response, // 오류 발생 시 바로 응답 반환
         };
+
         println!("Received user_id from Auth Service: {}", user_id);
        
         match controller.use_case.show_user_reservations(&user_id).await {
@@ -163,23 +150,13 @@ impl ReservationController {
         };
     
         // gRPC를 사용하여 AuthService에 토큰 검증 요청
-        let mut grpc_clients = controller.grpc_clients.lock().await;
-        let user_id = match grpc_clients.validate_token(token).await {
-            Ok(Some(user_id)) => {
-                println!("Received user_id from gRPC: {}", user_id);
-                user_id
-            },
-            Ok(None) => {
-                println!("gRPC returned None for user_id!");
-                return HttpResponse::Unauthorized().json("Invalid Token");
-            },
-            Err(err) => {
-                println!("gRPC call failed: {}", err);
-                return HttpResponse::InternalServerError().json("Auth Service Error");
-            }
+        let user_id = match validate_user_token(controller.grpc_clients.clone(), &token).await {
+            Ok(user_id) => user_id,
+            Err(response) => return response, // 오류 발생 시 바로 응답 반환
         };
     
         // 유저 정보 가져오기
+        let mut grpc_clients = controller.grpc_clients.lock().await;
         let user_info = match grpc_clients.get_user_info(user_id.clone()).await {
             Ok(info) => {
                 println!("User info received: {:?}", info);
@@ -191,14 +168,66 @@ impl ReservationController {
             }
         };
     
-        // 🔹 DTO에서 필요한 정보 추출
+        // DTO에서 필요한 정보 추출
         let reservation_id = req.reservation_id;
         let ad_cnt = req.ad_cnt;
         let cd_cnt = req.cd_cnt;
     
         match controller.use_case.update_reservation(reservation_id, ad_cnt, cd_cnt,user_info.ad_cnt,user_info.cd_cnt).await {
-            Ok(_) => HttpResponse::Ok().json("✅ 예약이 성공적으로 수정되었습니다."),
-            Err(e) => HttpResponse::InternalServerError().json(format!("❌ 예약 수정 실패: {}", e)),
+            Ok(_) => HttpResponse::Ok().json("예약이 성공적으로 수정되었습니다."),
+            Err(e) => HttpResponse::InternalServerError().json(format!("예약 수정 실패: {}", e)),
+        }
+    }
+
+    // /use - 예약 사용하기
+    pub async fn use_reservation (
+        controller: web::Data<Arc<ReservationController>>,
+        req: web::Json<UpdateStatusRequest>, 
+        http_req: HttpRequest,
+    ) -> impl Responder {
+        let token = match http_req.headers().get("Authorization") {
+            Some(value) => value.to_str().unwrap_or("").replace("Bearer ", "").trim().to_string(),
+            None => return HttpResponse::Unauthorized().json("No Authorization Header"),
+        };
+    
+        // gRPC를 사용하여 AuthService에 토큰 검증 요청
+        let user_id = match validate_user_token(controller.grpc_clients.clone(), &token).await {
+            Ok(user_id) => user_id,
+            Err(response) => return response, // 오류 발생 시 바로 응답 반환
+        };
+    
+        // DTO에서 필요한 정보 추출
+        let reservation_id = req.reservation_id;
+     
+        match controller.use_case.use_reservation(reservation_id).await {
+            Ok(_) => HttpResponse::Ok().json("티켓이 성공적으로 사용되었습니다."),
+            Err(e) => HttpResponse::InternalServerError().json(format!("예약 수정 실패: {}", e)),
+        }
+    }
+
+    // /cancellation - 예약 취소하기
+    pub async fn cancel_reservation (
+        controller: web::Data<Arc<ReservationController>>,
+        req: web::Json<UpdateStatusRequest>, 
+        http_req: HttpRequest,
+    ) -> impl Responder {
+        let token = match http_req.headers().get("Authorization") {
+            Some(value) => value.to_str().unwrap_or("").replace("Bearer ", "").trim().to_string(),
+            None => return HttpResponse::Unauthorized().json("No Authorization Header"),
+        };
+    
+        // gRPC를 사용하여 AuthService에 토큰 검증 요청
+        let user_id = match validate_user_token(controller.grpc_clients.clone(), &token).await {
+            Ok(user_id) => user_id,
+            Err(response) => return response, // 오류 발생 시 바로 응답 반환
+        };
+    
+        // DTO에서 필요한 정보 추출
+        let reservation_id = req.reservation_id;
+     
+        match controller.use_case.cancel_reservation(reservation_id).await {
+            Ok(_) => HttpResponse::Ok().json("티켓이 성공적으로 취소되었습니다."),
+            Err(e) => HttpResponse::InternalServerError().json(format!("예약 수정 실패: {}", e)),
         }
     }
 }

@@ -99,8 +99,15 @@ impl ReservationUseCase for ReservationService {
     }
     
     //예약 사용하기 
-    async fn use_reservation(&self, reservation_id: i32, status: ReservationStatus) -> Result<(), String> {
-        self.save_port.update_status(reservation_id, status).await
+    async fn use_reservation(&self, reservation_id: i32) -> Result<(), String> {
+        let use_status = ReservationStatus::Confirmed;
+        self.save_port.update_status(reservation_id, use_status).await
+    }
+
+    //예약 취소하기
+    async fn cancel_reservation(&self, reservation_id: i32) -> Result<(), String> {
+        let cancel_status = ReservationStatus::Cancelled;
+        self.save_port.update_status(reservation_id, cancel_status).await
     }
 
     //예약 수정하기
