@@ -2,15 +2,15 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::{application::port::out::{reservation_load_port::ReservationLoadPort, reservation_save_port::ReservationSavePort}, domain::reservation::{Reservation, ReservationStatus}, dto::reservation_chk_dto::ReservationLimits, infra::db::reservation_repository::{ReservationRepository, ReservationRepositoryImpl}};
+use crate::{application::port::out::{reservation_load_port::ReservationLoadPort, reservation_save_port::ReservationSavePort}, domain::reservation::{Reservation, ReservationStatus}, dto::reservation_chk_dto::ReservationLimits, infra::db::reservation_repository::ReservationRepository};
 
 // Adapter Implementation
 pub struct ReservationAdapter {
-    repository: Arc<ReservationRepositoryImpl>,
+    repository: Arc<dyn ReservationRepository + Send + Sync>,  
 }
 
 impl ReservationAdapter {
-    pub fn new(repository: Arc<ReservationRepositoryImpl>) -> Self {
+    pub fn new(repository: Arc<dyn ReservationRepository + Send + Sync>) -> Self {
         Self { repository }
     }
 }

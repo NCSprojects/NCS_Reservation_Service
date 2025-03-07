@@ -1,12 +1,21 @@
 use sqlx::MySqlPool;
 use tokio::sync::Mutex;
 use std::sync::Arc;
-use crate::{adapter::reservation_adapter::ReservationAdapter, application::{port::{r#in::reservation_usecase::ReservationUseCase, out::{reservation_load_port::ReservationLoadPort, reservation_save_port::ReservationSavePort}}, reservation_service::ReservationService}, db_connection::establish_connection, grpc::grpc_service::ReservationGrpcService,  grpc_client::GrpcClients, infra::{db::reservation_repository::ReservationRepositoryImpl, web::reservation_controller::ReservationController}, settings::Settings};
+use crate::{adapter::reservation_adapter::ReservationAdapter,
+    application::{port::{r#in::reservation_usecase::ReservationUseCase, out::{reservation_load_port::ReservationLoadPort, reservation_save_port::ReservationSavePort}}, 
+    reservation_service::ReservationService}, 
+    db_connection::establish_connection, 
+    grpc::grpc_service::ReservationGrpcService,  
+    grpc_client::GrpcClients, 
+    infra::db::reservation_repository::ReservationRepository,
+    infra::db::reservation_repository_impl::ReservationRepositoryImpl, 
+    infra::web::reservation_controller::ReservationController, settings::Settings};
 
 #[derive(Clone)]
 pub struct AppState {
     pub settings: Arc<Settings>,
-    pub db_pool: Arc<MySqlPool>,  
+    pub db_pool: Arc<MySqlPool>,
+    pub reservation_repository: Arc<dyn ReservationRepository + Send + Sync>,  
     pub reservation_service: Arc<dyn ReservationUseCase + Send + Sync>,
     pub reservation_controller: Arc<ReservationController>,
     pub grpc_server: Arc<ReservationGrpcService>,
@@ -25,8 +34,10 @@ impl AppState {
         println!("✅ Database migration completed!");
 
         let db_pool = Arc::new(db_pool);
-        let repository = Arc::new(ReservationRepositoryImpl::new(Arc::clone(&db_pool)));
-        let adapter = Arc::new(ReservationAdapter::new(repository.clone()));
+        let reservation_repository: Arc<dyn ReservationRepository + Send + Sync> = 
+        Arc::new(ReservationRepositoryImpl::new(Arc::clone(&db_pool)));
+        let adapter = 
+        Arc::new(ReservationAdapter::new(Arc::clone(&reservation_repository)));
         let save_port: Arc<dyn ReservationSavePort + Send + Sync> = adapter.clone();
         let load_port: Arc<dyn ReservationLoadPort + Send + Sync> = adapter.clone();
         let reservation_service: Arc<dyn ReservationUseCase + Send + Sync> = Arc::new(ReservationService::new(Arc::clone(&save_port), Arc::clone(&load_port)));
@@ -51,6 +62,7 @@ impl AppState {
          Self {
              settings: Arc::new(settings),
              db_pool: Arc::clone(&db_pool),
+             reservation_repository,
              reservation_service,
              reservation_controller,
              grpc_server, // gRPC 서버 추가
