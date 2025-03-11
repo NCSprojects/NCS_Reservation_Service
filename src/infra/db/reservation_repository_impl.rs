@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sqlx::{query, MySqlPool,Row};
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -40,6 +41,46 @@ impl ReservationRepository for ReservationRepositoryImpl {
             None
         }
     }
+    async fn laod_reservations_by_date(&self, start_time: DateTime<Utc>, end_time:DateTime<Utc>) -> Result<Vec<Reservation>,String>
+    {
+        let rows = query(
+            "
+             SELECT 
+                id, user_id, content_schedule_id, reserved_at, status, ad_cnt, cd_cnt, use_at  
+             FROM RESERVATION
+             where reserved_at BETWEEN ? AND ?  
+            "
+        )
+        .bind(start_time)
+        .bind(end_time)
+        .fetch_all(&*self.pool)
+        .await
+        .map_err(|err| err.to_string())?;
+
+        let reservations = rows.into_iter().map(|row| {
+            let status: Option<String> = row.try_get("status").ok();
+            let status = status.and_then(|s| match s.as_str() {
+                "PENDING" => Some(ReservationStatus::Pending),
+                "CONFIRMED" => Some(ReservationStatus::Confirmed),
+                "CANCELLED" => Some(ReservationStatus::Cancelled),
+                _ => None,
+            });
+
+            Reservation {
+                id: row.get("id"),
+                user_id: row.get("user_id"),
+                content_schedule_id: row.get("content_schedule_id"),
+                reserved_at: row.try_get("reserved_at").ok(),
+                status,
+                ad_cnt: row.get("ad_cnt"),
+                cd_cnt: row.get("cd_cnt"),
+                use_at: row.get::<i8, _>("use_at") != 0, // `TINYINT(1)` → `bool` 변환
+            }
+        }).collect();
+
+        Ok(reservations)
+    }
+
     async fn load_reservations_by_user(&self, user_id: &str) -> Result<Vec<Reservation>, String> 
     {
         let rows = query(
@@ -72,13 +113,13 @@ impl ReservationRepository for ReservationRepositoryImpl {
                 status,
                 ad_cnt: row.get("ad_cnt"),
                 cd_cnt: row.get("cd_cnt"),
-                use_at: row.get::<i8, _>("use_at") != 0, // ✅ `TINYINT(1)` → `bool` 변환
+                use_at: row.get::<i8, _>("use_at") != 0, // `TINYINT(1)` → `bool` 변환
             }
         }).collect();
 
         Ok(reservations)
     }
-    async fn load_reservation_by_content_schedule(&self, content_schedule_id:u64)-> Result<Vec<Reservation>, String> {
+    async fn load_reservations_by_content_schedule(&self, content_schedule_id:u64)-> Result<Vec<Reservation>, String> {
         let rows = query(
             "
             SELECT 
@@ -139,7 +180,7 @@ impl ReservationRepository for ReservationRepositoryImpl {
         let final_total = current_adults + current_children + new_total; // 최종 예약 후 인원
     
         println!(
-            "🔹 total_seats: {:?}, 현재 예약된 인원(스케줄): {:?}, 새로 예약할 인원: {:?}, 최종 인원: {:?}",
+            "total_seats: {:?}, 현재 예약된 인원(스케줄): {:?}, 새로 예약할 인원: {:?}, 최종 인원: {:?}",
             total_seats, current_adults + current_children, new_total, final_total
         );
     
@@ -147,7 +188,7 @@ impl ReservationRepository for ReservationRepositoryImpl {
         if final_total > total_seats {
             tx.rollback().await.map_err(|e| e.to_string())?;
             return Err(format!(
-                "🚫 예약 불가: 최대 좌석 수 초과 (최대 {:?}명, 현재 예약 {:?}명, 요청한 예약 {:?}명)",
+                "예약 불가: 최대 좌석 수 초과 (최대 {:?}명, 현재 예약 {:?}명, 요청한 예약 {:?}명)",
                 total_seats, current_adults + current_children, new_total
             ));
         }
@@ -155,10 +196,9 @@ impl ReservationRepository for ReservationRepositoryImpl {
         // `INSERT` 실행 (최대 좌석을 초과하지 않을 경우)
         sqlx::query!(
             "INSERT INTO RESERVATION (user_id, content_schedule_id, reserved_at, ad_cnt, cd_cnt, status, use_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, NOW(), ?, ?, ?, ?)",
             reservation.user_id,
             reservation.content_schedule_id,
-            reservation.reserved_at,
             reservation.ad_cnt,
             reservation.cd_cnt,
             status_str.as_deref(),
@@ -238,7 +278,7 @@ impl ReservationRepository for ReservationRepositoryImpl {
             if final_total > total_seats {
             tx.rollback().await.map_err(|e| e.to_string())?;
             return Err(format!(
-                "🚫 예약 불가: 최대 좌석 수 초과 (최대 {:?}명, 현재 예약 {:?}명, 요청한 예약 {:?}명)",
+                "예약 불가: 최대 좌석 수 초과 (최대 {:?}명, 현재 예약 {:?}명, 요청한 예약 {:?}명)",
                 total_seats, current_adults + current_children, new_total
             ));
         }

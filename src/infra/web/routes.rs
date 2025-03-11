@@ -8,6 +8,7 @@ pub fn configure(cfg: &mut web::ServiceConfig, state: Arc<AppState>) {
 
     cfg.service(
         web::scope("/reservation")
+            .route("",web::get().to(ReservationController::show_today_reservations))
             .route("/create", web::post().to(ReservationController::create_reservation))
             .route("/user",web::get().to(ReservationController::show_user_reservations))
             .route("/{id}", web::get().to(ReservationController::show_reservation))

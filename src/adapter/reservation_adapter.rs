@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 use crate::{application::port::out::{reservation_load_port::ReservationLoadPort, reservation_save_port::ReservationSavePort}, domain::reservation::{Reservation, ReservationStatus}, dto::reservation_chk_dto::ReservationLimits, infra::db::reservation_repository::ReservationRepository};
 
@@ -20,6 +21,9 @@ impl ReservationLoadPort for ReservationAdapter {
     async fn load_reservation(&self, reservation_id: i32) -> Option<Reservation> {
         self.repository.load_reservation(reservation_id.try_into().unwrap()).await
     }
+    async fn load_reservations_by_date(&self, start_time: DateTime<Utc>, end_time: DateTime<Utc>) -> Result<Vec<Reservation>,String>{
+        self.repository.laod_reservations_by_date(start_time, end_time).await
+    }
     async fn check_reservation_for_user_count(&self, user_id: &str, schedule_id: u64) -> Result<ReservationLimits, String> {
         let limits = self.repository.check_reservation_for_user_count(user_id, schedule_id).await?;
         Ok(limits) 
@@ -36,9 +40,9 @@ impl ReservationLoadPort for ReservationAdapter {
     {
         self.repository.load_reservations_by_user(user_id).await
     }
-    async fn load_reservation_by_content_schedule(&self, content_schedule_id:u64)-> Result<Vec<Reservation>, String>
+    async fn load_reservations_by_content_schedule(&self, content_schedule_id:u64)-> Result<Vec<Reservation>, String>
     {
-        self.repository.load_reservation_by_content_schedule(content_schedule_id).await
+        self.repository.load_reservations_by_content_schedule(content_schedule_id).await
     }
     
 }

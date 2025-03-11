@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::{domain::reservation::{Reservation, ReservationStatus}, dto::reservation_chk_dto::ReservationLimits};
+use crate::{common::date::get_today_start_end_date, domain::reservation::{Reservation, ReservationStatus}, dto::reservation_chk_dto::ReservationLimits};
 
 use super::port::{r#in::reservation_usecase::ReservationUseCase, out::{reservation_load_port::ReservationLoadPort, reservation_save_port::ReservationSavePort}};
 
@@ -33,7 +33,7 @@ impl ReservationService {
             total_adults, total_children
         );
     
-        // 🔹 인원 초과 체크
+        // 인원 초과 체크
         if total_adults > max_adult.into() {
             println!("예약 불가: 성인 수 초과 ({}명 > {}명)", total_adults, max_adult);
             return false;
@@ -70,6 +70,15 @@ impl ReservationUseCase for ReservationService {
             .load_reservation(reservation_id)
             .await
             .ok_or("Reservation not found".to_string())
+    }
+
+    async fn show_today_reservations(&self) -> Result<Vec<Reservation>,String> {
+        let (start_time, end_time) = get_today_start_end_date();
+         println!("Start Time: {}", start_time);
+        println!("End Time: {}", end_time);
+        self.load_port
+            .load_reservations_by_date(start_time, end_time)
+            .await
     }
 
     async fn show_user_reservations(&self, user_id: &str) -> Result<Vec<Reservation>,String>{

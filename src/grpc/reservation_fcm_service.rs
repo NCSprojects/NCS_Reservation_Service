@@ -29,7 +29,7 @@ impl ReservationService for ReservationFcmGrpcService {
             Err(_) => return Err(Status::invalid_argument("Invalid content_schedule_id format")),
         };
         
-        let reservations = match self.reservation_port.load_reservation_by_content_schedule(content_schedule_id).await {
+        let reservations = match self.reservation_port.load_reservations_by_content_schedule(content_schedule_id).await {
             Ok(reservations) => reservations,
             Err(err) => return Err(Status::internal(format!("Failed to load reservations: {}", err))),
         };
