@@ -4,12 +4,13 @@ use crate::state::AppState;
 use crate::infra::web::reservation_controller::ReservationController;
 
 pub fn configure(cfg: &mut web::ServiceConfig, state: Arc<AppState>) {
-    let controller = state.reservation_controller.clone(); // ✅ AppState에서 컨트롤러 가져오기
+    let controller = state.reservation_controller.clone(); //  AppState에서 컨트롤러 가져오기
 
     cfg.service(
         web::scope("/reservation")
             .route("",web::get().to(ReservationController::show_today_reservations))
             .route("/create", web::post().to(ReservationController::create_reservation))
+            .route("/create/manual/{user_id}", web::post().to(ReservationController::create_manual_reservation))
             .route("/user",web::get().to(ReservationController::show_user_reservations))
             .route("/{id}", web::get().to(ReservationController::show_reservation))
             .route("/count",web::post().to(ReservationController::update_reservation))
